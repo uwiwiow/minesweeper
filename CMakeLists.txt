@@ -5,4 +5,4 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(buscaMinas main.c)
 
-target_link_libraries(buscaMinas SDL2)
+target_link_libraries(buscaMinas SDL2 SDL2_ttf)
