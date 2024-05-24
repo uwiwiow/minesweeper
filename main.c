@@ -21,12 +21,50 @@ typedef struct {
     int amount;
 } Numbers;
 
-// TODO hacer que no de dos coordenadas iguales
-// TODO hacer que tengan poquito de probabilidad de que salgan juntas
+void swap(Coordinates *xp, Coordinates *yp)
+{
+    Coordinates temp = *xp;
+    *xp = *yp;
+    *yp = temp;
+}
+
+void selectionSort(Coordinates *bombs, int count)
+{
+    int i, j, min_idx;
+
+    // One by one move boundary of unsorted subarray
+    for (i = 0; i < count - 1; i++)
+    {
+        // Find the minimum element in unsorted array
+        min_idx = i;
+        for (j = i+1; j < count; j++)
+            if (bombs[j].x < bombs[min_idx].x)
+                min_idx = j;
+
+        // Swap the found minimum element with the first element
+        if(min_idx != i)
+            swap(&bombs[min_idx], &bombs[i]);
+    }
+}
+
 void generateBombs(Coordinates *bombs, int count, Status status) {
-    for (int i = 0; i < count; i++){
-        bombs[i].x = rand() % (status.WIDTH / status.TILE);
-        bombs[i].y = rand() % (status.HEIGHT / status.TILE);
+    int widthInTiles = status.WIDTH / status.TILE;
+    int heightInTiles = status.HEIGHT / status.TILE;
+
+    for (int i = 0; i < count; i++) {
+        int duplicate;
+        do {
+            duplicate = 0;
+            bombs[i].x = rand() % widthInTiles;
+            bombs[i].y = rand() % heightInTiles;
+
+            for (int j = 0; j < i; j++) {
+                if (bombs[i].x == bombs[j].x && bombs[i].y == bombs[j].y) {
+                    duplicate = 1;
+                    break;
+                }
+            }
+        } while (duplicate);
     }
 }
 
@@ -136,10 +174,18 @@ int main(int argc, char* argv[])
             Numbers numbers[numberCount];
             generateNumbers(numbers, bombs, bombCount, status,  &numberCount);
 
-            // TODO quit this
+//            // TODO quit this
+//            for (int i = 0; i < bombCount; i++) {
+//                printf("%d %d\n", bombs[i].x, bombs[i].y);
+//            }
+//            printf("\n\nsorted\n");
+//
+            selectionSort(bombs, bombCount);
+
             for (int i = 0; i < bombCount; i++) {
                 printf("%d %d\n", bombs[i].x, bombs[i].y);
             }
+
             printf("numbers\n\n");
             for (int i = 0; i < numberCount; i++) {
                 printf("%d %d %d\n", numbers[i].x, numbers[i].y, numbers[i].amount);
