@@ -20,11 +20,6 @@ typedef struct {
     bool VISIBLE;
 } Cell;
 
-typedef struct {
-    int X;
-    int Y;
-} Coords;
-
 void initializeBoard(Cell **board, int width, int height) {
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
@@ -44,19 +39,17 @@ void freeMem(Status status, Cell **board) {
     printf("deallocated\n");
 }
 
-void generateBombs(Cell **board, Coords *bombs, int count, Status status) {
+void generateBombs(Cell **board, int count, Status status) {
     int x, y;
 
     for (int i = 0; i < count; i++) {
         x = rand() % status.W_TILES;
         y = rand() % status.H_TILES;
-        bombs[i].X = x;
-        bombs[i].Y = y;
         board[x][y].TYPE = 2;
     }
 }
 
-void generateNumbers(Cell **board, Coords *bombs, Status status) {
+void generateNumbers(Cell **board, Status status) {
     int directions[8][2] = {
             {-1, -1}, {-1, 0}, {-1, 1},
             {0, -1},          {0, 1},
@@ -215,9 +208,8 @@ int main(int argc, char* argv[])
 
 
 
-            Coords bombs[status.BOMBS];
-            generateBombs(board, bombs, status.BOMBS, status);
-            generateNumbers(board, bombs, status);
+            generateBombs(board, status.BOMBS, status);
+            generateNumbers(board, status);
 
 
 
@@ -272,8 +264,8 @@ int main(int argc, char* argv[])
 
                         if (e.key.keysym.sym == SDLK_k) {
                             initializeBoard(board, status.W_TILES, status.H_TILES);
-                            generateBombs(board, bombs, status.BOMBS, status);
-                            generateNumbers(board, bombs, status);
+                            generateBombs(board, status.BOMBS, status);
+                            generateNumbers(board, status);
                         }
 
                         if (e.key.keysym.sym == SDLK_p) {
