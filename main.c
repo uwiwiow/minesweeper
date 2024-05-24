@@ -235,6 +235,7 @@ int main(int argc, char* argv[])
             SDL_Rect pointerRect = {0, 0, status.TILE, status.TILE};
 
             bool quit = false;
+            bool setVisibleTiles = false;
 
             while (!quit) {
                 frameStart = SDL_GetTicks64();
@@ -272,6 +273,10 @@ int main(int argc, char* argv[])
                             printMessage = !printMessage;
                         }
 
+                        if (e.key.keysym.sym == SDLK_o) {
+                            setVisibleTiles = !setVisibleTiles;
+                        }
+
 
 
                     }
@@ -301,7 +306,7 @@ int main(int argc, char* argv[])
 
                 for (int x = 0; x < status.W_TILES; x++) {
                     for (int y = 0; y < status.H_TILES; y++) {
-                        if (board[x][y].VISIBLE) {
+                        if (board[x][y].VISIBLE || setVisibleTiles) {
                             if (board[x][y].TYPE == 1) {
                                 SDL_Rect rect = {x * status.TILE,
                                                  y * status.TILE,
