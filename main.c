@@ -204,14 +204,12 @@ char* combineStrings(char* str1, bool freeText1, char* str2, bool freeText2) {
     size_t len2 = strlen(str2);
     size_t totalLen = len1 + len2 + 2;
 
-    // Allocate memory for the combined string
     char* result = (char*)malloc(totalLen * sizeof(char));
     if (result == NULL) {
         perror("Failed to allocate memory");
         exit(EXIT_FAILURE);
     }
 
-    // Combine the strings with a space in between
     sprintf(result, "%s %s", str1, str2);
 
     if (freeText1) {
@@ -280,14 +278,14 @@ int main(int argc, char* argv[])
 
     Status status = {
         .TILE = 40,
-        .WIDTH = 32*40,
-        .HEIGHT = 16*40,
         .W_TILES = 32,
         .H_TILES = 16,
         .BOMBS = 99,
         .STATE = START,
         .VISIBLE_TILES = 0
     };
+    status.WIDTH = status.W_TILES * status.TILE;
+    status.HEIGHT = status.H_TILES * status.TILE;
 
     Status defaultStatus = status;
 
@@ -461,6 +459,7 @@ int main(int argc, char* argv[])
                     }
                     else if (e.type == SDL_KEYDOWN) {
 
+
                         // CURSOR MOVEMENT
                         if (e.key.keysym.sym == SDLK_a) {
                             cursorRect.x -= status.TILE;
@@ -498,6 +497,7 @@ int main(int argc, char* argv[])
                         rectX = cursorRect.x/status.TILE;
                         rectY = cursorRect.y/status.TILE;
 
+
                         // DEBUG
                         if (e.key.keysym.sym == SDLK_1) {
                             printMessage1 = !printMessage1;
@@ -521,7 +521,6 @@ int main(int argc, char* argv[])
 
 
                         // GAMEPLAY
-
                         if (e.key.keysym.sym == SDLK_o) {
                             if (status.STATE != START) {
                                 status.STATE = START;
