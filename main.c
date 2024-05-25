@@ -21,7 +21,7 @@ typedef struct {
     int AMOUNT; // for number
     bool FLAG;
     bool VISIBLE;
-    bool DEATH; // TODO add ? sign
+    bool DEATH; // TODO add ? sign | add win condition
 } Cell;
 
 void initializeBoard(Cell **board, int width, int height) {
@@ -220,7 +220,7 @@ int main(int argc, char* argv[])
         {
 
             // LOAD FONT
-            TTF_Font *font = TTF_OpenFont("/home/uwiwiow/Documents/minesweeper/assets/NotoSerif-Regular.ttf", 24);
+            TTF_Font *font = TTF_OpenFont("assets/NotoSerif-Regular.ttf", 24);
             if (font == NULL) {
                 printf("TTF_OpenFont Error: %s\n", TTF_GetError());
                 SDL_DestroyRenderer(renderer);
@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
 
 
             // LOAD CURSOR SPRITE
-            SDL_Surface* pointerSurface = SDL_LoadBMP_RW(SDL_RWFromFile("/home/uwiwiow/Documents/minesweeper/assets/pointer.bmp", "rb"), 1);
+            SDL_Surface* pointerSurface = SDL_LoadBMP_RW(SDL_RWFromFile("assets/pointer.bmp", "rb"), 1);
             if (pointerSurface == NULL) {
                 printf("SDL_LoadBMP Error: %s\n", SDL_GetError());
                 SDL_DestroyRenderer(renderer);
@@ -272,7 +272,7 @@ int main(int argc, char* argv[])
 
 
             // LOAD SPRITE ATLAS
-            SDL_Surface* surface = IMG_Load("/home/uwiwiow/Documents/minesweeper/assets/atlas.png");
+            SDL_Surface* surface = IMG_Load("assets/atlas.png");
             if (surface == NULL) {
                 printf("IMG_Load Error: %s\n", IMG_GetError());
                 SDL_DestroyRenderer(renderer);
@@ -334,8 +334,10 @@ int main(int argc, char* argv[])
                         }
 
                         if (e.key.keysym.sym == SDLK_i) {
-                            status.START = false;
-                            setVisibleTiles = false;
+                            if (status.START) {
+                                status.START = false;
+                                setVisibleTiles = false;
+                            }
                             initializeBoard(board, status.W_TILES, status.H_TILES);
                             generateBombs(board, status.BOMBS, status);
                             generateNumbers(board, status);
