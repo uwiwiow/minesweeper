@@ -6,6 +6,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+typedef enum {
+    START,
+    PLAYING,
+    WIN,
+    LOSE
+} State;
+
 typedef struct {
     int WIDTH;
     int HEIGHT;
@@ -13,7 +20,8 @@ typedef struct {
     int H_TILES;
     int TILE;
     int BOMBS;
-    int START;
+    int VISIBLE_TILES;
+    State STATE;
 } Status;
 
 typedef enum {
@@ -22,77 +30,84 @@ typedef enum {
     CELL_QUESTIONED
 } CellMark;
 
+typedef enum {
+    BLANK,
+    NUMBER,
+    MINE,
+    MINE_EXPLOSION
+} CellType;
+
 typedef struct {
-    int TYPE; // 0 none, 1 number, 2 mine  TODO refactor to enum
-    int AMOUNT; // for number
+    CellType TYPE;
+    int AMOUNT;
     CellMark MARK;
     bool VISIBLE;
-    bool DEATH; // TODO add win condition
-} Cell;
+} TILE;
 
-void initializeBoard(Cell **board, int width, int height) {
+void initializeBoard(TILE **board, int width, int height) {
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
-            board[i][j].TYPE = 0;
+            board[i][j].TYPE = BLANK;
             board[i][j].AMOUNT = 0;
             board[i][j].VISIBLE = false;
-            board[i][j].DEATH = false;
             board[i][j].MARK = CELL_CLEARED;
         }
     }
 }
 
-void freeMem(Status status, Cell **board) {
+void freeMem(Status status, TILE **board) {
     for (int i = 0; i < status.W_TILES; i++) {
         free(board[i]);
     }
     free(board);
 }
 
-void generateBombs(Cell **board, int count, Status status) {
+void generateBombs(TILE **board, int count, Status status) {
     int x, y;
 
     for (int i = 0; i < count; i++) {
         x = rand() % status.W_TILES;
         y = rand() % status.H_TILES;
-        board[x][y].TYPE = 2;
+        board[x][y].TYPE = MINE;
     }
 }
 
-void generateNumbers(Cell **board, Status status) {
+void generateNumbers(TILE **board, Status *status) {
     int directions[8][2] = {
             {-1, -1}, {-1, 0}, {-1, 1},
             { 0, -1},          { 0, 1},
             { 1, -1}, { 1, 0}, { 1, 1}
     };
-
-    for (int x = 0; x < status.W_TILES; x++) {
-        for (int y = 0; y < status.H_TILES; y++) {
-            if (board[x][y].TYPE != 2) {
+    status->BOMBS = 0;
+    for (int x = 0; x < status->W_TILES; x++) {
+        for (int y = 0; y < status->H_TILES; y++) {
+            if (board[x][y].TYPE != MINE) {
                 for (int d = 0; d < 8; d++) {
                     int newX = x + directions[d][0];
                     int newY = y + directions[d][1];
 
-                    if (newX >= 0 && newX < status.W_TILES && newY >= 0 && newY < status.H_TILES) {
-                        if (board[newX][newY].TYPE == 2) {
-                            board[x][y].TYPE = 1;
+                    if (newX >= 0 && newX < status->W_TILES && newY >= 0 && newY < status->H_TILES) {
+                        if (board[newX][newY].TYPE == MINE) {
+                            board[x][y].TYPE = NUMBER;
                             board[x][y].AMOUNT += 1;
                         }
                     }
                 }
+            } else {
+                status->BOMBS += 1;
             }
         }
     }
 }
 
-void revealEmptyCells(Cell **board, int x, int y, Status status, bool *setVisibleTiles) {
+void revealEmptyCells(TILE **board, int x, int y, Status *status) {
     int directions[8][2] = {
             {-1, -1}, {-1, 0}, {-1, 1},
             { 0, -1},          { 0, 1},
             { 1, -1}, { 1, 0}, { 1, 1}
     };
 
-    if (x < 0 || x >= status.W_TILES || y < 0 || y >= status.H_TILES || board[x][y].VISIBLE) {
+    if (x < 0 || x >= status->W_TILES || y < 0 || y >= status->H_TILES || board[x][y].VISIBLE) {
         return;
     }
 
@@ -101,21 +116,27 @@ void revealEmptyCells(Cell **board, int x, int y, Status status, bool *setVisibl
     }
 
     board[x][y].VISIBLE = true;
+    status->VISIBLE_TILES += 1;
 
-    if (board[x][y].TYPE == 1) {
+    if (board[x][y].TYPE == MINE) {
+        board[x][y].TYPE = MINE_EXPLOSION;
+        status->STATE = LOSE;
         return;
     }
 
-    if (board[x][y].TYPE == 2) {
-        board[x][y].DEATH = true;
-        *setVisibleTiles = true;
+    if ((status->VISIBLE_TILES + status->BOMBS) == (status->W_TILES * status->H_TILES)) {
+        status->STATE = WIN;
+    }
+
+    if (board[x][y].TYPE == NUMBER) {
         return;
     }
+
 
     for (int d = 0; d < 8; d++) {
         int newX = x + directions[d][0];
         int newY = y + directions[d][1];
-        revealEmptyCells(board, newX, newY, status, setVisibleTiles);
+        revealEmptyCells(board, newX, newY, status);
     }
 }
 
@@ -160,12 +181,15 @@ int main(int argc, char* argv[])
         .W_TILES = 32,
         .H_TILES = 16,
         .BOMBS = 99,
-        .START = false
+        .STATE = START,
+        .VISIBLE_TILES = 0
     };
 
-    Cell **board = malloc(status.W_TILES * sizeof(Cell *));
+    Status defaultStatus = status;
+
+    TILE **board = malloc(status.W_TILES * sizeof(TILE *));
     for (int i = 0; i < status.W_TILES; i++) {
-        board[i] = malloc(status.H_TILES * sizeof(Cell));
+        board[i] = malloc(status.H_TILES * sizeof(TILE));
     }
 
     initializeBoard(board, status.W_TILES, status.H_TILES);
@@ -252,7 +276,7 @@ int main(int argc, char* argv[])
 
             // GENERATE BOMBS And NUMBERS
             generateBombs(board, status.BOMBS, status);
-            generateNumbers(board, status);
+            generateNumbers(board, &status);
 
 
             // LOAD CURSOR SPRITE
@@ -344,13 +368,15 @@ int main(int argc, char* argv[])
                         rectY = cursorRect.y/status.TILE;
 
                         if (e.key.keysym.sym == SDLK_i) {
-                            if (status.START) {
-                                status.START = false;
+                            if (status.STATE = START) {
+                                status.STATE = START;
                                 setVisibleTiles = false;
                             }
+                            status.BOMBS = defaultStatus.BOMBS;
+                            status.VISIBLE_TILES = defaultStatus.VISIBLE_TILES;
                             initializeBoard(board, status.W_TILES, status.H_TILES);
                             generateBombs(board, status.BOMBS, status);
-                            generateNumbers(board, status);
+                            generateNumbers(board, &status);
                         }
 
                         if (e.key.keysym.sym == SDLK_o) {
@@ -362,22 +388,26 @@ int main(int argc, char* argv[])
                         }
 
                         if (e.key.keysym.sym == SDLK_k) {
-                            if (!status.START) {
-                                while (board[rectX][rectY].TYPE != 0) {
+                            if (status.STATE == START) {
+                                while (board[rectX][rectY].TYPE != BLANK) {
+                                    status.BOMBS = defaultStatus.BOMBS;
+                                    status.VISIBLE_TILES = defaultStatus.VISIBLE_TILES;
                                     initializeBoard(board, status.W_TILES, status.H_TILES);
                                     generateBombs(board, status.BOMBS, status);
-                                    generateNumbers(board, status);
+                                    generateNumbers(board, &status);
                                 }
-                                status.START = true;
+                                status.STATE = PLAYING;
                             }
                             if (board[rectX][rectY].MARK != CELL_FLAGGED) {
-                                revealEmptyCells(board, rectX, rectY, status, &setVisibleTiles);
+                                revealEmptyCells(board, rectX, rectY, &status);
                             }
                         }
 
                         if (e.key.keysym.sym == SDLK_l) {
-                            if (status.START && !board[rectX][rectY].VISIBLE) {
+                            if (status.STATE == PLAYING && (!board[rectX][rectY].VISIBLE || (setVisibleTiles && !board[rectX][rectY].VISIBLE))) {
                                 board[rectX][rectY].MARK = (board[rectX][rectY].MARK + 1) % 3;
+                            } else {
+                                board[rectX][rectY].MARK = CELL_CLEARED;
                             }
                         }
 
@@ -414,23 +444,24 @@ int main(int argc, char* argv[])
                                          status.TILE,
                                          status.TILE};
                         if (board[x][y].VISIBLE || setVisibleTiles) {
-                            if (board[x][y].TYPE == 0) {
+                            if (board[x][y].TYPE == BLANK) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[8], &rect);
+                                // FIXME add && gameOver
                                 if (board[x][y].MARK == CELL_FLAGGED) {
                                     SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
                                 }
                             }
-                            if (board[x][y].TYPE == 1) {
+                            if (board[x][y].TYPE == NUMBER) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[board[x][y].AMOUNT-1], &rect);
                                 if (board[x][y].MARK == CELL_FLAGGED) {
                                     SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
                                 }
                             }
-                            if (board[x][y].TYPE == 2) {
+                            if (board[x][y].TYPE == MINE) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[14], &rect);
-                                if (board[x][y].DEATH) {
-                                    SDL_RenderCopy(renderer, texture, &spriteRectangles[15], &rect);
-                                }
+                            }
+                            if (board[x][y].TYPE == MINE_EXPLOSION) {
+                                SDL_RenderCopy(renderer, texture, &spriteRectangles[15], &rect);
                             }
                         } else {
                             SDL_RenderCopy(renderer, texture, &spriteRectangles[9], &rect);
@@ -481,6 +512,18 @@ int main(int argc, char* argv[])
                         return 1;
                     }
                     messageRect.y = 120;
+                    SDL_RenderCopy(renderer, message, NULL, &messageRect);
+
+                    message = renderText(renderer, font, status.STATE, 0, textColor);
+                    if (message == NULL) {
+                        TTF_CloseFont(font);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        TTF_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+                    messageRect.y = 190;
                     SDL_RenderCopy(renderer, message, NULL, &messageRect);
                 }
 
