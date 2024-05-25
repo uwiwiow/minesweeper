@@ -23,7 +23,7 @@ typedef enum {
 } CellMark;
 
 typedef struct {
-    int TYPE; // 0 none, 1 number, 2 mine
+    int TYPE; // 0 none, 1 number, 2 mine  TODO refactor to enum
     int AMOUNT; // for number
     CellMark MARK;
     bool VISIBLE;
@@ -376,7 +376,7 @@ int main(int argc, char* argv[])
                         }
 
                         if (e.key.keysym.sym == SDLK_l) {
-                            if (status.START) {
+                            if (status.START && !board[rectX][rectY].VISIBLE) {
                                 board[rectX][rectY].MARK = (board[rectX][rectY].MARK + 1) % 3;
                             }
                         }
