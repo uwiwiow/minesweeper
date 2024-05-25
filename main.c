@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -12,12 +13,15 @@ typedef struct {
     int H_TILES;
     int TILE;
     int BOMBS;
+    int START;
 } Status;
 
 typedef struct {
     int TYPE; // 0 none, 1 number, 2 mine
     int AMOUNT; // for number
+    bool FLAG;
     bool VISIBLE;
+    bool DEATH; // TODO add ? sign
 } Cell;
 
 void initializeBoard(Cell **board, int width, int height) {
@@ -26,7 +30,8 @@ void initializeBoard(Cell **board, int width, int height) {
             board[i][j].TYPE = 0;
             board[i][j].AMOUNT = 0;
             board[i][j].VISIBLE = false;
-
+            board[i][j].DEATH = false;
+            board[i][j].FLAG = false;
         }
     }
 }
@@ -36,7 +41,6 @@ void freeMem(Status status, Cell **board) {
         free(board[i]);
     }
     free(board);
-    printf("deallocated\n");
 }
 
 void generateBombs(Cell **board, int count, Status status) {
@@ -52,8 +56,8 @@ void generateBombs(Cell **board, int count, Status status) {
 void generateNumbers(Cell **board, Status status) {
     int directions[8][2] = {
             {-1, -1}, {-1, 0}, {-1, 1},
-            {0, -1},          {0, 1},
-            {1, -1}, {1, 0}, {1, 1}
+            { 0, -1},          { 0, 1},
+            { 1, -1}, { 1, 0}, { 1, 1}
     };
 
     for (int x = 0; x < status.W_TILES; x++) {
@@ -75,6 +79,39 @@ void generateNumbers(Cell **board, Status status) {
     }
 }
 
+void revealEmptyCells(Cell **board, int x, int y, Status status, bool *setVisibleTiles) {
+    int directions[8][2] = {
+            {-1, -1}, {-1, 0}, {-1, 1},
+            { 0, -1},          { 0, 1},
+            { 1, -1}, { 1, 0}, { 1, 1}
+    };
+
+    if (x < 0 || x >= status.W_TILES || y < 0 || y >= status.H_TILES || board[x][y].VISIBLE) {
+        return;
+    }
+
+    if (board[x][y].FLAG) {
+        return;
+    }
+
+    board[x][y].VISIBLE = true;
+
+    if (board[x][y].TYPE == 1) {
+        return;
+    }
+
+    if (board[x][y].TYPE == 2) {
+        board[x][y].DEATH = true;
+        *setVisibleTiles = true;
+        return;
+    }
+
+    for (int d = 0; d < 8; d++) {
+        int newX = x + directions[d][0];
+        int newY = y + directions[d][1];
+        revealEmptyCells(board, newX, newY, status, setVisibleTiles);
+    }
+}
 
 char* intToString(int x, int y) {
     char* result = malloc(20 * sizeof(char));
@@ -116,7 +153,8 @@ int main(int argc, char* argv[])
         .HEIGHT = 16*40,
         .W_TILES = 32,
         .H_TILES = 16,
-        .BOMBS = 99
+        .BOMBS = 99,
+        .START = false
     };
 
     Cell **board = malloc(status.W_TILES * sizeof(Cell *));
@@ -159,7 +197,7 @@ int main(int argc, char* argv[])
     Uint64 frameTime;
 
     // Create window
-    SDL_Window *window = SDL_CreateWindow("Busca minas xdxd",
+    SDL_Window *window = SDL_CreateWindow("Minesweeper",
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SDL_WINDOWPOS_UNDEFINED,
                                           status.WIDTH, status.HEIGHT,
@@ -181,8 +219,8 @@ int main(int argc, char* argv[])
         else
         {
 
-
-            TTF_Font *font = TTF_OpenFont("/usr/share/fonts/noto/NotoSerif-Regular.ttf", 24);
+            // LOAD FONT
+            TTF_Font *font = TTF_OpenFont("/home/uwiwiow/Documents/minesweeper/assets/NotoSerif-Regular.ttf", 24);
             if (font == NULL) {
                 printf("TTF_OpenFont Error: %s\n", TTF_GetError());
                 SDL_DestroyRenderer(renderer);
@@ -192,7 +230,6 @@ int main(int argc, char* argv[])
                 freeMem(status, board);
                 return 1;
             }
-
             SDL_Color textColor = {0, 0, 0, 255};
             SDL_Rect messageRect = {50, 50, 200, 100};
             SDL_Texture* message = renderText(renderer, font, 0, 0, textColor);
@@ -203,17 +240,17 @@ int main(int argc, char* argv[])
                 TTF_Quit();
                 SDL_Quit();
                 return 1;
-            };
+            }
             bool printMessage = false;
 
 
-
+            // GENERATE BOMBS And NUMBERS
             generateBombs(board, status.BOMBS, status);
             generateNumbers(board, status);
 
 
-
-            SDL_Surface* pointerSurface = SDL_LoadBMP_RW(SDL_RWFromFile("/home/uwiwiow/Documents/minesweeper/pointer.bmp", "rb"), 1);
+            // LOAD CURSOR SPRITE
+            SDL_Surface* pointerSurface = SDL_LoadBMP_RW(SDL_RWFromFile("/home/uwiwiow/Documents/minesweeper/assets/pointer.bmp", "rb"), 1);
             if (pointerSurface == NULL) {
                 printf("SDL_LoadBMP Error: %s\n", SDL_GetError());
                 SDL_DestroyRenderer(renderer);
@@ -221,7 +258,6 @@ int main(int argc, char* argv[])
                 SDL_Quit();
                 return 1;
             }
-
             SDL_Texture* pointerTexture = SDL_CreateTextureFromSurface(renderer, pointerSurface);
             SDL_FreeSurface(pointerSurface);
             if (pointerTexture == NULL) {
@@ -231,8 +267,42 @@ int main(int argc, char* argv[])
                 SDL_Quit();
                 return 1;
             }
+            SDL_Rect cursorRect = {0, 0, status.TILE, status.TILE};
 
-            SDL_Rect pointerRect = {0, 0, status.TILE, status.TILE};
+
+
+            // LOAD SPRITE ATLAS
+            SDL_Surface* surface = IMG_Load("/home/uwiwiow/Documents/minesweeper/assets/atlas.png");
+            if (surface == NULL) {
+                printf("IMG_Load Error: %s\n", IMG_GetError());
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(window);
+                SDL_Quit();
+                return 1;
+            }
+
+            SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_FreeSurface(surface);
+            if (texture == NULL) {
+                printf("SDL_CreateTextureFromSurface Error: %s\n", SDL_GetError());
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(window);
+                SDL_Quit();
+                return 1;
+            }
+
+            // Definir rectángulos de recorte para cada sprite en la textura
+            SDL_Rect spriteRectangles[16]; // Supongamos que hay 16 sprites en la imagen, en una cuadrícula de 4x4
+
+            int spriteIndex = 0;
+            for (int row = 0; row < 4; ++row) {
+                for (int col = 0; col < 4; ++col) {
+                    spriteRectangles[spriteIndex].x = col * 16;
+                    spriteRectangles[spriteIndex].y = row * 16;
+                    spriteRectangles[spriteIndex].w = 16;
+                    spriteRectangles[spriteIndex++].h = 16;
+                }
+            }
 
             bool quit = false;
             bool setVisibleTiles = false;
@@ -248,54 +318,76 @@ int main(int argc, char* argv[])
                     else if (e.type == SDL_KEYDOWN) {
 
                         if (e.key.keysym.sym == SDLK_a) {
-                            pointerRect.x -= status.TILE;
+                            cursorRect.x -= status.TILE;
                         }
 
                         if (e.key.keysym.sym == SDLK_d) {
-                            pointerRect.x += status.TILE;
+                            cursorRect.x += status.TILE;
                         }
 
                         if (e.key.keysym.sym == SDLK_w) {
-                            pointerRect.y -= status.TILE;
+                            cursorRect.y -= status.TILE;
                         }
 
                         if (e.key.keysym.sym == SDLK_s) {
-                            pointerRect.y += status.TILE;
+                            cursorRect.y += status.TILE;
                         }
 
-                        if (e.key.keysym.sym == SDLK_k) {
+                        if (e.key.keysym.sym == SDLK_i) {
+                            status.START = false;
+                            setVisibleTiles = false;
                             initializeBoard(board, status.W_TILES, status.H_TILES);
                             generateBombs(board, status.BOMBS, status);
                             generateNumbers(board, status);
-                        }
-
-                        if (e.key.keysym.sym == SDLK_p) {
-                            printMessage = !printMessage;
                         }
 
                         if (e.key.keysym.sym == SDLK_o) {
                             setVisibleTiles = !setVisibleTiles;
                         }
 
+                        if (e.key.keysym.sym == SDLK_p) {
+                            printMessage = !printMessage;
+                        }
+
+                        if (e.key.keysym.sym == SDLK_k) {
+                            if (!status.START) {
+                                while (board[cursorRect.x/status.TILE][cursorRect.y/status.TILE].TYPE != 0) {
+                                    initializeBoard(board, status.W_TILES, status.H_TILES);
+                                    generateBombs(board, status.BOMBS, status);
+                                    generateNumbers(board, status);
+                                }
+                                status.START = true;
+                            }
+                            if (!board[cursorRect.x/status.TILE][cursorRect.y/status.TILE].FLAG) {
+                                if (board[cursorRect.x/status.TILE][cursorRect.y/status.TILE].FLAG) printf("PENES\n");
+                                revealEmptyCells(board, cursorRect.x/status.TILE, cursorRect.y/status.TILE, status, &setVisibleTiles);
+                            }
+                        }
+
+                        if (e.key.keysym.sym == SDLK_l) {
+                            if (status.START) {
+                                board[cursorRect.x/status.TILE][cursorRect.y/status.TILE].FLAG = !board[cursorRect.x/status.TILE][cursorRect.y/status.TILE].FLAG;
+                            }
+                        }
 
 
                     }
                 }
 
-                if (pointerRect.x == status.WIDTH) {
-                    pointerRect.x = 0;
+                if (cursorRect.x == status.WIDTH) {
+                    cursorRect.x = 0;
                 }
 
-                if (pointerRect.x == -status.TILE) {
-                    pointerRect.x = status.WIDTH - status.TILE;
+                if (cursorRect.x == -status.TILE) {
+                    cursorRect.x = status.WIDTH - status.TILE;
                 }
 
-                if (pointerRect.y == status.HEIGHT) {
-                    pointerRect.y = 0;
+                if (cursorRect.y == status.HEIGHT) {
+                    cursorRect.y = 0;
                 }
 
-                if (pointerRect.y == -status.TILE) {
-                    pointerRect.y = status.HEIGHT - status.TILE;
+                if (cursorRect.y == -status.TILE) {
+                    cursorRect.y = status.HEIGHT - status.TILE;
                 }
 
 
@@ -306,31 +398,42 @@ int main(int argc, char* argv[])
 
                 for (int x = 0; x < status.W_TILES; x++) {
                     for (int y = 0; y < status.H_TILES; y++) {
+                        SDL_Rect rect = {x * status.TILE,
+                                         y * status.TILE,
+                                         status.TILE,
+                                         status.TILE};
                         if (board[x][y].VISIBLE || setVisibleTiles) {
+                            if (board[x][y].TYPE == 0) {
+                                SDL_RenderCopy(renderer, texture, &spriteRectangles[8], &rect);
+                                if (board[x][y].FLAG) {
+                                    SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
+                                }
+                            }
                             if (board[x][y].TYPE == 1) {
-                                SDL_Rect rect = {x * status.TILE,
-                                                 y * status.TILE,
-                                                 status.TILE,
-                                                 status.TILE};
-                                SDL_SetRenderDrawColor(renderer, 0x00, 250-(30*board[x][y].AMOUNT), 0x44, 0xFF);
-                                SDL_RenderFillRect(renderer, &rect);
+                                SDL_RenderCopy(renderer, texture, &spriteRectangles[board[x][y].AMOUNT-1], &rect);
+                                if (board[x][y].FLAG) {
+                                    SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
+                                }
                             }
                             if (board[x][y].TYPE == 2) {
-                                SDL_Rect rect = {x * status.TILE,
-                                                 y * status.TILE,
-                                                 status.TILE,
-                                                 status.TILE};
-                                SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
-                                SDL_RenderFillRect(renderer, &rect);
+                                SDL_RenderCopy(renderer, texture, &spriteRectangles[14], &rect);
+                                if (board[x][y].DEATH) {
+                                    SDL_RenderCopy(renderer, texture, &spriteRectangles[15], &rect);
+                                }
+                            }
+                        } else {
+                            SDL_RenderCopy(renderer, texture, &spriteRectangles[9], &rect);
+                            if (board[x][y].FLAG) {
+                                SDL_RenderCopy(renderer, texture, &spriteRectangles[10], &rect);
                             }
                         }
                     }
                 }
 
-                SDL_RenderCopy(renderer, pointerTexture, NULL, &pointerRect);
+                SDL_RenderCopy(renderer, pointerTexture, NULL, &cursorRect);
 
                 if (printMessage) {
-                    message = renderText(renderer, font, (pointerRect.x / status.TILE), (pointerRect.y / status.TILE), textColor);
+                    message = renderText(renderer, font, (cursorRect.x / status.TILE), (cursorRect.y / status.TILE), textColor);
                     if (message == NULL) {
                         TTF_CloseFont(font);
                         SDL_DestroyRenderer(renderer);
@@ -342,7 +445,7 @@ int main(int argc, char* argv[])
                     messageRect.y = 50;
                     SDL_RenderCopy(renderer, message, NULL, &messageRect);
 
-                    message = renderText(renderer, font, board[(pointerRect.x / status.TILE)][(pointerRect.y / status.TILE)].TYPE, board[(pointerRect.x / status.TILE)][(pointerRect.y / status.TILE)].AMOUNT, textColor);
+                    message = renderText(renderer, font, board[(cursorRect.x / status.TILE)][(cursorRect.y / status.TILE)].TYPE, board[(cursorRect.x / status.TILE)][(cursorRect.y / status.TILE)].AMOUNT, textColor);
                     if (message == NULL) {
                         TTF_CloseFont(font);
                         SDL_DestroyRenderer(renderer);
@@ -352,6 +455,18 @@ int main(int argc, char* argv[])
                         return 1;
                     }
                     messageRect.y = -20;
+                    SDL_RenderCopy(renderer, message, NULL, &messageRect);
+
+                    message = renderText(renderer, font, board[(cursorRect.x / status.TILE)][(cursorRect.y / status.TILE)].FLAG, board[(cursorRect.x / status.TILE)][(cursorRect.y / status.TILE)].VISIBLE, textColor);
+                    if (message == NULL) {
+                        TTF_CloseFont(font);
+                        SDL_DestroyRenderer(renderer);
+                        SDL_DestroyWindow(window);
+                        TTF_Quit();
+                        SDL_Quit();
+                        return 1;
+                    }
+                    messageRect.y = 120;
                     SDL_RenderCopy(renderer, message, NULL, &messageRect);
                 }
 
