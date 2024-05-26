@@ -19,9 +19,24 @@ cmake ..
 make
 ```
 
-### Run
+### Run from Source Build
 ```shell
 ./minesweeper
+```
+
+## Run from Binary Distribution
+
+1. Download and extract the binary distribution archive:
+
+```shell
+tar -xzvf minesweeper_linux_x86_64.tar.gz
+cd minesweeper-*
+```
+
+2. Run the game:
+
+```shell
+./run.sh
 ```
 
 ## Controls
