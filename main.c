@@ -400,9 +400,9 @@ int main(int argc, char* argv[])
                 SDL_Quit();
                 return 1;
             }
-            SDL_Texture* pointerTexture = SDL_CreateTextureFromSurface(renderer, pointerSurface);
+            SDL_Texture* cursorTexture = SDL_CreateTextureFromSurface(renderer, pointerSurface);
             SDL_FreeSurface(pointerSurface);
-            if (pointerTexture == NULL) {
+            if (cursorTexture == NULL) {
                 printf("SDL_CreateTextureFromSurface Error: %s\n", SDL_GetError());
                 SDL_DestroyRenderer(renderer);
                 SDL_DestroyWindow(window);
@@ -571,36 +571,48 @@ int main(int argc, char* argv[])
                 // Clear screen
                 SDL_RenderClear(renderer);
 
+                // RENDER TILES
                 for (int x = 0; x < status.W_TILES; x++) {
                     for (int y = 0; y < status.H_TILES; y++) {
+                        // SET RECT FOR ALL TILES
                         SDL_Rect rect = {x * status.TILE,
                                          y * status.TILE,
                                          status.TILE,
                                          status.TILE};
+
                         if (board[x][y].VISIBLE || setVisibleTiles || status.STATE == LOSE || status.STATE == WIN) {
+
                             if (board[x][y].TYPE == BLANK) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[8], &rect);
+
                                 if (board[x][y].MARK == CELL_FLAGGED && status.STATE == LOSE) {
                                     SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
                                 }
                             }
+
                             if (board[x][y].TYPE == NUMBER) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[board[x][y].AMOUNT-1], &rect);
+
                                 if (board[x][y].MARK == CELL_FLAGGED && status.STATE == LOSE) {
                                     SDL_RenderCopy(renderer, texture, &spriteRectangles[11], &rect);
                                 }
                             }
+
                             if (board[x][y].TYPE == MINE) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[14], &rect);
                             }
+
                             if (board[x][y].TYPE == MINE_EXPLOSION) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[15], &rect);
                             }
                         } else {
+
                             SDL_RenderCopy(renderer, texture, &spriteRectangles[9], &rect);
+
                             if (board[x][y].MARK == CELL_FLAGGED) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[10], &rect);
                             }
+
                             if (board[x][y].MARK == CELL_QUESTIONED) {
                                 SDL_RenderCopy(renderer, texture, &spriteRectangles[13], &rect);
                             }
@@ -608,8 +620,10 @@ int main(int argc, char* argv[])
                     }
                 }
 
-                SDL_RenderCopy(renderer, pointerTexture, NULL, &cursorRect);
+                // RENDER CURSOR
+                SDL_RenderCopy(renderer, cursorTexture, NULL, &cursorRect);
 
+                // RENDER DEBUG MESSAGES
                 if (printMessage1) {
                     message1 = 0;
                     message = renderText(renderer, font, "  X  Y  ", textColor, bgColor, false);
@@ -699,7 +713,7 @@ int main(int argc, char* argv[])
 
             }
             SDL_DestroyTexture(message);
-            SDL_DestroyTexture(pointerTexture);
+            SDL_DestroyTexture(cursorTexture);
             TTF_CloseFont(font);
 
             // Destroy renderer
