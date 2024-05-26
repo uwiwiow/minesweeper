@@ -367,15 +367,8 @@ int main(int argc, char* argv[])
             SDL_Color bgColor = {255, 255, 255, 255};
             SDL_Color textColor = {0, 0, 0, 255};
             SDL_Rect messageRect = {0, -13, 100, 60};
-            SDL_Texture* message = renderText(renderer, font, "hola", textColor, bgColor, false);
-            if (message == NULL) {
-                TTF_CloseFont(font);
-                SDL_DestroyRenderer(renderer);
-                SDL_DestroyWindow(window);
-                TTF_Quit();
-                SDL_Quit();
-                return 1;
-            }
+            SDL_Texture* message = renderText(renderer, font, "xxx", textColor, bgColor, false);
+            renderTextFail(message, font, renderer, window);
             bool printMessage1 = false;
             bool printMessage2 = false;
             bool printMessage3 = false;
