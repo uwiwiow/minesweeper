@@ -26,6 +26,8 @@ make
 
 ## Run from Binary Distribution
 
+### Linux
+
 1. Download and extract the binary distribution archive:
 
 ```shell
@@ -37,6 +39,21 @@ cd minesweeper-*
 
 ```shell
 ./run.sh
+```
+
+### Windows
+
+1. Download and extract the binary distribution archive:
+
+```shell
+Expand-Archive .\minesweeper_windows_x86_64.zip
+cd .\minesweeper-*
+```
+
+2. Run the game:
+
+```shell
+.\minesweeper.exe
 ```
 
 ## Controls
