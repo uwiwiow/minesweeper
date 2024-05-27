@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-#include <SDL2/SDL_image.h>
+#include <SDL.h>
+#include <SDL_main.h>
+#include <SDL_ttf.h>
+#include <SDL_image.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -268,10 +269,8 @@ bool renderTextFail(SDL_Texture* message, TTF_Font *font, SDL_Renderer *renderer
     return false;
 }
 
-int main(int argc, char* argv[])
+int main( int argc, char *argv[] )
 {
-    (void) argc;
-    (void) argv;
 
     time_t t;
     srand((unsigned)time(&t));
@@ -296,6 +295,7 @@ int main(int argc, char* argv[])
 
     initializeBoard(board, status.W_TILES, status.H_TILES);
 
+    SDL_SetMainReady();
 
     if(SDL_Init(SDL_INIT_VIDEO) < 0)
     {
