@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <SDL.h>
 #include <SDL_main.h>
 #include <SDL_ttf.h>
@@ -14,17 +15,6 @@ typedef enum State {
     LOSE
 } State;
 
-typedef struct Status {
-    int WIDTH;
-    int HEIGHT;
-    int W_TILES;
-    int H_TILES;
-    int TILE;
-    int BOMBS;
-    int VISIBLE_TILES;
-    State STATE;
-} Status;
-
 typedef enum CellMark {
     CELL_CLEARED,
     CELL_FLAGGED,
@@ -35,7 +25,8 @@ typedef enum CellType {
     BLANK,
     NUMBER,
     MINE,
-    MINE_EXPLOSION
+    MINE_EXPLOSION,
+    ANY
 } CellType;
 
 typedef struct TILE {
@@ -44,6 +35,19 @@ typedef struct TILE {
     CellMark MARK;
     bool VISIBLE;
 } TILE;
+
+typedef struct Status {
+    int WIDTH;
+    int HEIGHT;
+    int W_TILES;
+    int H_TILES;
+    int TILE;
+    int BOMBS;
+    int VISIBLE_TILES;
+    State STATE;
+    CellType FIRST_CELL;
+    unsigned int MAX_ITERATIONS;
+} Status;
 
 void initializeBoard(TILE **board, int width, int height) {
     for (int i = 0; i < width; i++) {
@@ -257,13 +261,15 @@ SDL_Texture* renderText(SDL_Renderer* renderer, TTF_Font* font, char* text, SDL_
     return textureMessage;
 }
 
-bool renderTextFail(SDL_Texture* message, TTF_Font *font, SDL_Renderer *renderer, SDL_Window *window) {
+bool renderTextFail(SDL_Texture* message, SDL_Texture *cursorTexture, TTF_Font *font, SDL_Renderer *renderer, SDL_Window *window, Status status, TILE** board) {
     if (message == NULL) {
+        SDL_DestroyTexture(cursorTexture);
         TTF_CloseFont(font);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         TTF_Quit();
         SDL_Quit();
+        freeMem(status, board);
         return true;
     }
     return false;
@@ -281,10 +287,14 @@ int main( int argc, char *argv[] )
         .H_TILES = 16,
         .BOMBS = 99,
         .STATE = START,
-        .VISIBLE_TILES = 0
+        .VISIBLE_TILES = 0,
+        .FIRST_CELL = BLANK,
+        .MAX_ITERATIONS = 10000
     };
     status.WIDTH = status.W_TILES * status.TILE;
     status.HEIGHT = status.H_TILES * status.TILE;
+
+    unsigned int iterationCounter = 0;
 
     Status defaultStatus = status;
 
@@ -353,32 +363,6 @@ int main( int argc, char *argv[] )
         {
 
 
-            // LOAD FONT
-            TTF_Font *font = TTF_OpenFont("assets/NotoSerif-Regular.ttf", 24);
-            if (font == NULL) {
-                printf("TTF_OpenFont Error: %s\n", TTF_GetError());
-                SDL_DestroyRenderer(renderer);
-                SDL_DestroyWindow(window);
-                TTF_Quit();
-                SDL_Quit();
-                freeMem(status, board);
-                return 1;
-            }
-            SDL_Color bgColor = {255, 255, 255, 255};
-            SDL_Color textColor = {0, 0, 0, 255};
-            SDL_Rect messageRect = {0, -13, 100, 60};
-            SDL_Texture* message = renderText(renderer, font, "xxx", textColor, bgColor, false);
-            renderTextFail(message, font, renderer, window);
-            bool printMessage1 = false;
-            bool printMessage2 = false;
-            bool printMessage3 = false;
-            bool printMessage4 = false;
-
-            int message1 = 0;
-            int message2 = 0;
-            int message3 = 0;
-
-
             // GENERATE BOMBS And NUMBERS
             generateBombs(board, status.BOMBS, status);
             generateNumbers(board, &status);
@@ -425,8 +409,8 @@ int main( int argc, char *argv[] )
                 return 1;
             }
 
+            // SPRITE ARRAY
             SDL_Rect spriteRectangles[16];
-
             int spriteIndex = 0;
             for (int row = 0; row < 4; ++row) {
                 for (int col = 0; col < 4; ++col) {
@@ -437,9 +421,38 @@ int main( int argc, char *argv[] )
                 }
             }
 
+
+            // LOAD FONT
+            TTF_Font *font = TTF_OpenFont("assets/NotoSerif-Regular.ttf", 24);
+            if (font == NULL) {
+                printf("TTF_OpenFont Error: %s\n", TTF_GetError());
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(window);
+                TTF_Quit();
+                SDL_Quit();
+                freeMem(status, board);
+                return 1;
+            }
+            SDL_Color bgColor = {255, 255, 255, 255};
+            SDL_Color textColor = {0, 0, 0, 255};
+            SDL_Rect messageRect = {0, -13, 100, 60};
+            SDL_Texture* message = renderText(renderer, font, "xxx", textColor, bgColor, false);
+            renderTextFail(message, cursorTexture, font, renderer, window, status, board);
+            bool printMessage1 = false;
+            bool printMessage2 = false;
+            bool printMessage3 = false;
+            bool printMessage4 = false;
+
+            int message1 = 0;
+            int message2 = 0;
+            int message3 = 0;
+
+
+            // GENERAL VAR SETTINGS
             bool quit = false;
             bool setVisibleTiles = false;
 
+            // CURSOR RECT ON TILES
             int rectX, rectY;
 
             while (!quit) {
@@ -531,13 +544,21 @@ int main( int argc, char *argv[] )
                         }
 
                         if (e.key.keysym.sym == SDLK_k) {
-                            if (status.STATE == START) {
-                                while (board[rectX][rectY].TYPE != BLANK) {
+                            iterationCounter = 0;
+                            if (status.STATE == START && status.FIRST_CELL != ANY) {
+                                while (board[rectX][rectY].TYPE != status.FIRST_CELL) {
                                     status.BOMBS = defaultStatus.BOMBS;
                                     status.VISIBLE_TILES = defaultStatus.VISIBLE_TILES;
                                     initializeBoard(board, status.W_TILES, status.H_TILES);
                                     generateBombs(board, status.BOMBS, status);
                                     generateNumbers(board, &status);
+
+                                    iterationCounter++;
+                                    if (iterationCounter > status.MAX_ITERATIONS) {
+                                        quit = true;
+                                        break;
+                                    }
+
                                 }
                                 status.STATE = PLAYING;
                             }
@@ -620,14 +641,14 @@ int main( int argc, char *argv[] )
                 if (printMessage1) {
                     message1 = 0;
                     message = renderText(renderer, font, "  X  Y  ", textColor, bgColor, false);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){0, -10, 90, 40};
                     SDL_RenderCopy(renderer, message, NULL, &messageRect);
 
                     message = renderText(renderer, font, XYToString(rectX, rectY), textColor, bgColor, true);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){0, 23, 90, 40};
@@ -639,7 +660,7 @@ int main( int argc, char *argv[] )
                 if (printMessage2) {
                     message2 = 0;
                     message = renderText(renderer, font, "TYPE - AMNT", textColor, bgColor, false);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){120 - message1, -10, 160, 40};
@@ -647,7 +668,7 @@ int main( int argc, char *argv[] )
 
                     message = renderText(renderer, font, combineStrings(typeToString(board[(rectX)][(rectY)].TYPE), false,
                                                                         intToString(board[(rectX)][(rectY)].AMOUNT), true), textColor, bgColor, true);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){120 - message1, 23, 140, 40};
@@ -659,7 +680,7 @@ int main( int argc, char *argv[] )
                 if (printMessage3) {
                     message3 = 0;
                     message = renderText(renderer, font, "MARK - VISIBLE", textColor, bgColor, false);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){310 - message1  - message2, -10, 160, 40};
@@ -667,7 +688,7 @@ int main( int argc, char *argv[] )
 
                     message = renderText(renderer, font, combineStrings(markToString(board[(rectX)][(rectY)].MARK), false,
                                                                         boolToString(board[(rectX)][(rectY)].VISIBLE), false), textColor, bgColor, true);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){310 - message1  - message2, 23, 140, 40};
@@ -678,14 +699,14 @@ int main( int argc, char *argv[] )
 
                 if (printMessage4) {
                     message = renderText(renderer, font, "STATE", textColor, bgColor, false);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){500 - message1  - message2  - message3, -10, 80, 40};
                     SDL_RenderCopy(renderer, message, NULL, &messageRect);
 
                     message = renderText(renderer, font, stateToString(status.STATE), textColor, bgColor, false);
-                    if (renderTextFail(message, font, renderer, window)){
+                    if (renderTextFail(message, cursorTexture, font, renderer, window, status, board)){
                         return 1;
                     }
                     messageRect = (SDL_Rect){500 - message1  - message2  - message3, 23, 80, 40};
@@ -720,6 +741,7 @@ int main( int argc, char *argv[] )
     }
 
     // Quit SDL
+    TTF_Quit();
     SDL_Quit();
 
     freeMem(status, board);
