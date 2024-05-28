@@ -126,8 +126,8 @@ Status status = {
 .W_TILES = 32, // Number of tiles in width
 .H_TILES = 16, // Number of tiles in height
 .BOMBS = 99, // Number of bombs in the game (might not be accurate)
-.STATE = START, // Default state when starting the game
-.VISIBLE_TILES = 0 // Number of starting visible tiles (used to calculate win condition)
+.STATE = START, // Default state when starting the game (typically set to START)
+.VISIBLE_TILES = 0 // Number of starting visible tiles (used to calculate win condition; typically left as 0)
 .FIRST_CELL = BLANK, // Default first tile to open (BLANK / NUMBER / MINE / ANY)
 .MAX_ITERATIONS = 10000 // Maximum iterations for generating the board before automatic termination (-1 for unlimited)
 };
