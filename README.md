@@ -138,15 +138,6 @@ Once the build process is complete, you can run the Minesweeper game directly fr
     .\minesweeper.exe
     ```
 
-## Controls
-
-- WASD for movement
-- O to restart the game
-- P to uncover all the tiles
-- K to open a tile
-- L to flag or question mark a tile
-- 1-5 to show debug information
-
 ## Gameplay
 
 ### General
@@ -154,6 +145,15 @@ Once the build process is complete, you can run the Minesweeper game directly fr
 There are almost 99 mines (due to duplicated positions).
 
 Every time you start a game, you will open a blank tile first. From there, you will be opening the adjacent tiles.
+
+### Controls
+
+- WASD for movement
+- O to restart the game
+- P to uncover all the tiles
+- K to open a tile
+- L to flag or question mark a tile
+- 1-5 to show debug information
 
 ### Win condition
 
