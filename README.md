@@ -2,26 +2,108 @@
 
 A clone of Minesweeper made in C with SDL2.
 
-## Required Libraries
+## Building for Linux
 
-- SDL2
-- SDL2_ttf
-- SDL2_image
+### Prerequisites
 
-## Install & Build
+Before building, ensure you have the following libraries installed:
 
-```shell
-git clone https://github.com/uwiwiow/minesweeper
-cd minesweeper/ 
-mkdir build
-cd build
-cmake ..
-make
-```
+- `SDL2`
+- `SDL2_ttf`
+- `SDL2_image`
 
-### Run from Source Build
+### Build
+
+To build Minesweeper for Linux from source, follow these steps:
+
+1. Clone the Minesweeper repository from GitHub:
+
+    ```shell
+    git clone https://github.com/uwiwiow/minesweeper
+    cd minesweeper/
+    ```
+
+2. Create a build directory for MinGW:
+
+    ```shell
+    mkdir build
+    cd build
+    ```
+
+3. Run CMake to configure the build:
+
+    ```shell
+    cmake ..
+    ```
+
+4. Build the project using make:
+
+    ```shell
+    make
+    ```
+   
+This will compile the source code and generate the executable.
+
+### Running the Game
+
+Once the build process is complete, you can run the Minesweeper game directly from the source build directory:
+    
 ```shell
 ./minesweeper
+```
+
+## Building for Windows with MinGW from Linux
+
+### Prerequisites
+
+Before building, ensure you have the following libraries installed:
+
+- `mingw-w64-toolchain`
+- `mingw-w64-sdl2`
+- `mingw-w64-sdl2_ttf`
+- `mingw-w64-sdl2_image`
+
+### Build
+
+1. Clone the Minesweeper repository from GitHub:
+
+    ```shell
+    git clone https://github.com/uwiwiow/minesweeper
+    cd minesweeper/
+    ```
+
+2. Create a build directory for MinGW:
+
+    ```shell
+    mkdir build-mingw
+    cd build-mingw
+    ```
+
+3. Run CMake with the MinGW toolchain file:
+
+    ```shell
+    x86_64-w64-mingw32-cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-mingw.cmake ..
+    ```
+    
+    To make a static build add `-DSTATIC_BUILD=ON`:
+
+    ```shell
+    x86_64-w64-mingw32-cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-mingw.cmake -DSTATIC_BUILD=ON ..
+    ```
+
+4. Once CMake configuration is done, build the project:
+    
+    ```shell
+    make
+    ```
+    This will generate the minesweeper.exe executable.
+
+### Running the Game
+
+Once the build process is complete, you can run the Minesweeper game directly from the directory:
+
+```shell
+.\minesweeper.exe
 ```
 
 ## Run from Binary Distribution
@@ -30,31 +112,31 @@ make
 
 1. Download and extract the binary distribution archive:
 
-```shell
-tar -xzvf minesweeper_linux_x86_64.tar.gz
-cd minesweeper-*
-```
+    ```shell
+    tar -xzvf minesweeper_linux_x86_64.tar.gz
+    cd minesweeper-*
+    ```
 
 2. Run the game:
 
-```shell
-./run.sh
-```
+    ```shell
+    ./run.sh
+    ```
 
 ### Windows
 
 1. Download and extract the binary distribution archive:
 
-```shell
-Expand-Archive .\minesweeper_windows_x86_64.zip
-cd .\minesweeper-*
-```
+    ```shell
+    Expand-Archive .\minesweeper_windows_x86_64.zip
+    cd .\minesweeper-*
+    ```
 
 2. Run the game:
 
-```shell
-.\minesweeper.exe
-```
+    ```shell
+    .\minesweeper.exe
+    ```
 
 ## Controls
 
