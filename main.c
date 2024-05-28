@@ -528,8 +528,8 @@ int main( int argc, char *argv[] )
 
                         // GAMEPLAY
                         if (e.key.keysym.sym == SDLK_o) {
-                            if (status.STATE != START) {
-                                status.STATE = START;
+                            if (status.STATE != defaultStatus.STATE) {
+                                status.STATE = defaultStatus.STATE;
                                 setVisibleTiles = false;
                             }
                             status.BOMBS = defaultStatus.BOMBS;
