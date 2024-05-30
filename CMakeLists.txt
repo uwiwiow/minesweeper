@@ -11,8 +11,9 @@ add_executable(minesweeper src/main.c
         src/game.h
         src/board.c
         src/utils.c
-        src/game.c
-        src/game.c)
+        src/init.c
+        src/resource.c
+        src/game_loop.c)
 
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 

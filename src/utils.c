@@ -128,7 +128,6 @@ bool renderTextFail(SDL_Texture* message, SDL_Texture *cursorTexture, TTF_Font *
         TTF_CloseFont(font);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
-        SDL_Quit();
         return true;
     }
     return false;

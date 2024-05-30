@@ -48,6 +48,7 @@ typedef struct Status {
     unsigned int MAX_ITERATIONS;
 } Status;
 
+// BOARD
 TILE **mallocBoard(int rows, int cols);
 void initializeBoard(TILE **board, int width, int height);
 void freeMem(Status status, TILE **board);
@@ -55,6 +56,11 @@ void generateBombs(TILE **board, int count, Status status);
 void generateNumbers(TILE **board, Status *status);
 void revealEmptyCells(TILE **board, int x, int y, Status *status);
 
+// INIT
+int initializeSDL(Status *status, TILE **board);
+void cleanupSDL(Status status, TILE **board);
+
+// UTILS
 char* intToString(int number);
 char* XYToString(int x, int y);
 char* boolToString(bool b);
@@ -62,8 +68,14 @@ char* markToString(CellMark mark);
 char* typeToString(CellType type);
 char* stateToString(State state);
 char* combineStrings(char* str1, bool freeText1, char* str2, bool freeText2);
-
 SDL_Texture* renderText(SDL_Renderer* renderer, TTF_Font* font, char* text, SDL_Color fgColor, SDL_Color bgColor, bool freeText);
 bool renderTextFail(SDL_Texture* message, SDL_Texture *cursorTexture, TTF_Font *font, SDL_Renderer *renderer, SDL_Window *window, Status status, TILE** board);
+
+// RESOURCE
+SDL_Texture* loadTexture(SDL_Renderer *renderer, const char *file);
+SDL_Texture* loadCursor(SDL_Renderer *renderer, const char *file);
+
+// GAME LOOP
+void gameLoop(Status *status, Status defaultStatus, int iterationCounter, TILE **board);
 
 #endif // GAME_H
