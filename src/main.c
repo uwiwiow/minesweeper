@@ -1,282 +1,9 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <SDL.h>
-#include <SDL_main.h>
-#include <SDL_ttf.h>
-#include <SDL_image.h>
+#include "game.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <time.h>
 
-typedef enum State {
-    START,
-    PLAYING,
-    WIN,
-    LOSE
-} State;
-
-typedef enum CellMark {
-    CELL_CLEARED,
-    CELL_FLAGGED,
-    CELL_QUESTIONED
-} CellMark;
-
-typedef enum CellType {
-    BLANK,
-    NUMBER,
-    MINE,
-    MINE_EXPLOSION,
-    ANY
-} CellType;
-
-typedef struct TILE {
-    CellType TYPE;
-    int AMOUNT;
-    CellMark MARK;
-    bool VISIBLE;
-} TILE;
-
-typedef struct Status {
-    int WIDTH;
-    int HEIGHT;
-    int W_TILES;
-    int H_TILES;
-    int TILE;
-    int BOMBS;
-    int VISIBLE_TILES;
-    State STATE;
-    CellType FIRST_CELL;
-    unsigned int MAX_ITERATIONS;
-} Status;
-
-void initializeBoard(TILE **board, int width, int height) {
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            board[i][j].TYPE = BLANK;
-            board[i][j].AMOUNT = 0;
-            board[i][j].VISIBLE = false;
-            board[i][j].MARK = CELL_CLEARED;
-        }
-    }
-}
-
-void freeMem(Status status, TILE **board) {
-    for (int i = 0; i < status.W_TILES; i++) {
-        free(board[i]);
-    }
-    free(board);
-}
-
-void generateBombs(TILE **board, int count, Status status) {
-    int x, y;
-
-    for (int i = 0; i < count; i++) {
-        x = rand() % status.W_TILES;
-        y = rand() % status.H_TILES;
-        board[x][y].TYPE = MINE;
-    }
-}
-
-void generateNumbers(TILE **board, Status *status) {
-    int directions[8][2] = {
-            {-1, -1}, {-1, 0}, {-1, 1},
-            { 0, -1},          { 0, 1},
-            { 1, -1}, { 1, 0}, { 1, 1}
-    };
-    status->BOMBS = 0;
-    for (int x = 0; x < status->W_TILES; x++) {
-        for (int y = 0; y < status->H_TILES; y++) {
-            if (board[x][y].TYPE != MINE) {
-                for (int d = 0; d < 8; d++) {
-                    int newX = x + directions[d][0];
-                    int newY = y + directions[d][1];
-
-                    if (newX >= 0 && newX < status->W_TILES && newY >= 0 && newY < status->H_TILES) {
-                        if (board[newX][newY].TYPE == MINE) {
-                            board[x][y].TYPE = NUMBER;
-                            board[x][y].AMOUNT += 1;
-                        }
-                    }
-                }
-            } else {
-                status->BOMBS += 1;
-            }
-        }
-    }
-}
-
-void revealEmptyCells(TILE **board, int x, int y, Status *status) {
-    int directions[8][2] = {
-            {-1, -1}, {-1, 0}, {-1, 1},
-            { 0, -1},          { 0, 1},
-            { 1, -1}, { 1, 0}, { 1, 1}
-    };
-
-    if (x < 0 || x >= status->W_TILES || y < 0 || y >= status->H_TILES || board[x][y].VISIBLE) {
-        return;
-    }
-
-    if (board[x][y].MARK == CELL_FLAGGED) {
-        return;
-    }
-
-    board[x][y].VISIBLE = true;
-    status->VISIBLE_TILES += 1;
-
-    if (board[x][y].TYPE == MINE) {
-        board[x][y].TYPE = MINE_EXPLOSION;
-        status->STATE = LOSE;
-        return;
-    }
-
-    if ((status->VISIBLE_TILES + status->BOMBS) == (status->W_TILES * status->H_TILES)) {
-        status->STATE = WIN;
-    }
-
-    if (board[x][y].TYPE == NUMBER) {
-        return;
-    }
-
-
-    for (int d = 0; d < 8; d++) {
-        int newX = x + directions[d][0];
-        int newY = y + directions[d][1];
-        revealEmptyCells(board, newX, newY, status);
-    }
-}
-
-char* intToString(int number) {
-    char* result = (char*)malloc(14 * sizeof(char));
-    sprintf(result, "  %d", number);
-    return result;
-}
-
-char* XYToString(int x, int y) {
-    char* result = malloc(20 * sizeof(char));
-    sprintf(result, "(%d, %d)", x, y);
-    return result;
-}
-
-char* boolToString(bool b) {
-    return b ? "  true" : "  false";
-}
-
-char* markToString(CellMark mark) {
-    switch (mark) {
-        case CELL_CLEARED:
-            return "CLEAR";
-        case CELL_FLAGGED:
-            return "FLAG";
-        case CELL_QUESTIONED:
-            return "QSTN";
-        default:
-            return "UNKN";
-    }
-}
-
-char* typeToString(CellType type) {
-    switch (type) {
-        case BLANK:
-            return "BLANK";
-        case NUMBER:
-            return "NUMBER";
-        case MINE:
-            return "MINE";
-        case MINE_EXPLOSION:
-            return "M-EXP";
-        default:
-            return "UNKN";
-    }
-}
-
-char* stateToString(State state) {
-    switch (state) {
-        case START:
-            return "START";
-        case PLAYING:
-            return "PLAYING";
-        case WIN:
-            return "WIN";
-        case LOSE:
-            return "LOSE";
-        default:
-            return "UNKN";
-    }
-}
-
-char* combineStrings(char* str1, bool freeText1, char* str2, bool freeText2) {
-    size_t len1 = strlen(str1);
-    size_t len2 = strlen(str2);
-    size_t totalLen = len1 + len2 + 2;
-
-    char* result = (char*)malloc(totalLen * sizeof(char));
-    if (result == NULL) {
-        perror("Failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
-
-    sprintf(result, "%s %s", str1, str2);
-
-    if (freeText1) {
-        free(str1);
-    }
-    if (freeText2) {
-        free(str2);
-    }
-
-    return result;
-}
-
-SDL_Texture* renderText(SDL_Renderer* renderer, TTF_Font* font, char* text, SDL_Color fgColor, SDL_Color bgColor, bool freeText) {
-    SDL_Surface* surfaceMessage;
-
-    if (bgColor.a == 0) {
-        surfaceMessage = TTF_RenderText_Blended(font, text, fgColor);
-    } else {
-        surfaceMessage = TTF_RenderText_Shaded(font, text, fgColor, bgColor);
-    }
-
-    if (surfaceMessage == NULL) {
-        printf("TTF_RenderText Error: %s\n", TTF_GetError());
-        if (freeText) {
-            free(text);
-        }
-        return NULL;
-    }
-
-    SDL_Texture* textureMessage = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-    SDL_FreeSurface(surfaceMessage);
-    if (textureMessage == NULL) {
-        printf("SDL_CreateTextureFromSurface Error: %s\n", SDL_GetError());
-        if (freeText) {
-            free(text);
-        }
-        return NULL;
-    }
-
-    if (freeText) {
-        free(text);
-    }
-
-    return textureMessage;
-}
-
-bool renderTextFail(SDL_Texture* message, SDL_Texture *cursorTexture, TTF_Font *font, SDL_Renderer *renderer, SDL_Window *window, Status status, TILE** board) {
-    if (message == NULL) {
-        SDL_DestroyTexture(cursorTexture);
-        TTF_CloseFont(font);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        TTF_Quit();
-        SDL_Quit();
-        freeMem(status, board);
-        return true;
-    }
-    return false;
-}
-
-int main( int argc, char *argv[] )
-{
+int main(int argc, char *argv[]) {
 
     time_t t;
     srand((unsigned)time(&t));
@@ -291,16 +18,15 @@ int main( int argc, char *argv[] )
         .FIRST_CELL = BLANK,
         .MAX_ITERATIONS = 10000
     };
+
     status.WIDTH = status.W_TILES * status.TILE;
     status.HEIGHT = status.H_TILES * status.TILE;
-
     unsigned int iterationCounter = 0;
-
     Status defaultStatus = status;
 
-    TILE **board = malloc(status.W_TILES * sizeof(TILE *));
-    for (int i = 0; i < status.W_TILES; i++) {
-        board[i] = malloc(status.H_TILES * sizeof(TILE));
+    TILE **board = mallocBoard(status.W_TILES, status.H_TILES);
+    if (board == NULL) {
+        return -1;
     }
 
     initializeBoard(board, status.W_TILES, status.H_TILES);
@@ -746,9 +472,6 @@ int main( int argc, char *argv[] )
 
     freeMem(status, board);
 
-
     return 0;
 
 }
-
-

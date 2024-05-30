@@ -7,7 +7,13 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(SDL2_image REQUIRED)
 
-add_executable(minesweeper main.c)
+add_executable(minesweeper src/main.c
+        src/game.h
+        src/board.c
+        src/utils.c
+        src/game.c
+        src/game.c)
+
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 
 # STATIC stuff (Windows)
