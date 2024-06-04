@@ -170,7 +170,7 @@ Displays the (x, y) coordinates of the cursor.
 Displays (Type, Amount):
 
 * Type represents the type of tile:
-    * BLANK: A blank tile
+    * BLANK_TILE: A blank tile
     * NUMBER: A tile with a number representing the number of mines around it
     * MINE: A mine
     * M-EXP: A mine that the player opened, only appears when it's game over
@@ -210,7 +210,7 @@ Status status = {
 .BOMBS = 99, // Number of bombs in the game (might not be accurate)
 .STATE = START, // Default state when starting the game (typically set to START)
 .VISIBLE_TILES = 0 // Number of starting visible tiles (used to calculate win condition; typically left as 0)
-.FIRST_CELL = BLANK, // Default first tile to open (BLANK / NUMBER / MINE / ANY)
+.FIRST_CELL = BLANK_TILE, // Default first tile to open (BLANK_TILE / NUMBER / MINE / ANY)
 .MAX_ITERATIONS = 10000 // Maximum iterations for generating the board before automatic termination (-1 for unlimited)
 };
 ```

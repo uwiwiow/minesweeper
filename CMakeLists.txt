@@ -3,9 +3,7 @@ project(minesweeper C)
 
 set(CMAKE_C_STANDARD 11)
 
-find_package(SDL2 REQUIRED)
-find_package(SDL2_ttf REQUIRED)
-find_package(SDL2_image REQUIRED)
+find_package(raylib REQUIRED)
 
 add_executable(minesweeper main.c)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
@@ -22,4 +20,4 @@ if (STATIC_BUILD)
     set(BUILD_SHARED_LIBS OFF)
 endif()
 
-target_link_libraries(minesweeper PRIVATE SDL2::SDL2main SDL2::SDL2 SDL2_ttf::SDL2_ttf SDL2_image::SDL2_image)
+target_link_libraries(minesweeper raylib GL m pthread dl rt X11)
