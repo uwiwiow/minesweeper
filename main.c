@@ -181,7 +181,7 @@ int main( int argc, char *argv[] )
         handle_error("connect");
 
     time_t t;
-    srand((unsigned)time(&t));
+    srand(123);
 
     Status status = {
             .TILE = 40,
@@ -378,7 +378,29 @@ int main( int argc, char *argv[] )
             switch (allPackets[i].action_tile) {
                 case NONE:
                     break;
-                case OPENED: revealEmptyCells(board, pkRectX, pkRectY, &status);
+                case OPENED: {
+                    iterationCounter = 0;
+                    if (status.STATE == START && status.FIRST_CELL != ANY) {
+                        while (board[pkRectX][pkRectY].TYPE != status.FIRST_CELL) {
+                            status.BOMBS = defaultStatus.BOMBS;
+                            status.VISIBLE_TILES = defaultStatus.VISIBLE_TILES;
+                            initializeBoard(board, status.W_TILES, status.H_TILES);
+                            generateBombs(board, status.BOMBS, status);
+                            generateNumbers(board, &status);
+
+                            iterationCounter++;
+                            if (iterationCounter > status.MAX_ITERATIONS) {
+                                CloseWindow();
+                                break;
+                            }
+
+                        }
+                        status.STATE = PLAYING;
+                    }
+                    if (board[rectX][rectY].MARK != CELL_FLAGGED && (status.STATE == START || status.STATE == PLAYING)) {
+                        revealEmptyCells(board, pkRectX, pkRectY, &status);
+                    }
+                }
                     break;
                 case CLEAR: board[pkRectX][pkRectY].MARK = CELL_CLEARED;
                     break;
