@@ -2,6 +2,16 @@
 #include "raylib.h"
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define handle_error(msg) \
+           do { perror(msg); } while (0);
+
+#define MAX_CLIENTS 100
 
 typedef enum State {
     START,
@@ -43,6 +53,19 @@ typedef struct Status {
     CellType FIRST_CELL;
     unsigned int MAX_ITERATIONS;
 } Status;
+
+typedef enum CellAction {
+    NONE = -1,
+    OPENED,
+    CLEAR,
+    FLAGGED,
+    QUESTIONED
+} CellAction;
+
+typedef struct Packet {
+    Vector2 pos_cursor;
+    CellAction action_tile;
+} Packet;
 
 void initializeBoard(TILE **board, int width, int height) {
     for (int i = 0; i < width; i++) {
@@ -142,19 +165,33 @@ void revealEmptyCells(TILE **board, int x, int y, Status *status) {
 
 int main( int argc, char *argv[] )
 {
+    SetTraceLogLevel(LOG_WARNING);
+
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd == -1)
+        handle_error("socket");
+
+    struct sockaddr_in server_addr = {
+            .sin_family = AF_INET,
+            .sin_port = htons(12345),
+            .sin_addr.s_addr = inet_addr("127.0.0.1")
+    };
+
+    if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+        handle_error("connect");
 
     time_t t;
     srand((unsigned)time(&t));
 
     Status status = {
-        .TILE = 40,
-        .W_TILES = 32,
-        .H_TILES = 16,
-        .BOMBS = 99,
-        .STATE = START,
-        .VISIBLE_TILES = 0,
-        .FIRST_CELL = BLANK_TILE,
-        .MAX_ITERATIONS = 10000
+            .TILE = 40,
+            .W_TILES = 32,
+            .H_TILES = 16,
+            .BOMBS = 99,
+            .STATE = START,
+            .VISIBLE_TILES = 0,
+            .FIRST_CELL = BLANK_TILE,
+            .MAX_ITERATIONS = 10000
     };
     status.WIDTH = status.W_TILES * status.TILE;
     status.HEIGHT = status.H_TILES * status.TILE;
@@ -208,6 +245,19 @@ int main( int argc, char *argv[] )
 
     // CURSOR RECT ON TILES
     int rectX, rectY;
+    Vector2 cursors[MAX_CLIENTS];
+
+    Packet packet = {
+            cursorRect,
+            NONE
+    };
+    Packet allPackets[MAX_CLIENTS];
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        allPackets[i] = (Packet) {
+                cursorRect,
+                NONE
+        };
+    }
 
     while (!WindowShouldClose()) {
 
@@ -249,6 +299,8 @@ int main( int argc, char *argv[] )
         rectX = cursorRect.x/status.TILE;
         rectY = cursorRect.y/status.TILE;
 
+        packet.pos_cursor = cursorRect;
+        packet.action_tile = NONE;
 
 
         // GAMEPLAY
@@ -289,18 +341,54 @@ int main( int argc, char *argv[] )
             }
             if (board[rectX][rectY].MARK != CELL_FLAGGED && (status.STATE == START || status.STATE == PLAYING)) {
                 revealEmptyCells(board, rectX, rectY, &status);
+                packet.action_tile = OPENED;
             }
         }
 
         if (IsKeyPressed(KEY_L)) {
             if (status.STATE == PLAYING && (!board[rectX][rectY].VISIBLE || (setVisibleTiles && !board[rectX][rectY].VISIBLE))) {
                 board[rectX][rectY].MARK = (board[rectX][rectY].MARK + 1) % 3;
+                packet.action_tile = (board[rectX][rectY].MARK) + 1;
             } else {
                 board[rectX][rectY].MARK = CELL_CLEARED;
             }
         }
 
+        if (send(socket_fd, &packet, sizeof(packet), 0) == -1)
+            handle_error("send")
 
+//        printf("Sent Packet: Cursor(%f, %f),Action(%d)\n",
+//               packet.pos_cursor.x, packet.pos_cursor.y, packet.action_tile);
+
+        ssize_t nbytes_read = recv(socket_fd, allPackets, sizeof(allPackets), 0);
+        if (nbytes_read == -1)
+            handle_error("recv");
+
+        int num_packets_received = nbytes_read / sizeof(Packet);
+//        printf("Received %d Packets from server:\n", num_packets_received);
+        for (int i = 0; i < num_packets_received; i++) {
+            if (packet.action_tile >= 0 ) {
+                printf("Packet %d: Cursor(%f, %f),Action(%d)\n",
+                       i, allPackets[i].pos_cursor.x, allPackets[i].pos_cursor.y, allPackets[i].action_tile);
+            }
+
+            int pkRectX = allPackets[i].pos_cursor.x/status.TILE;
+            int pkRectY = allPackets[i].pos_cursor.y/status.TILE;
+
+            switch (allPackets[i].action_tile) {
+                case NONE:
+                    break;
+                case OPENED: revealEmptyCells(board, pkRectX, pkRectY, &status);
+                    break;
+                case CLEAR: board[pkRectX][pkRectY].MARK = CELL_CLEARED;
+                    break;
+                case FLAGGED: board[pkRectX][pkRectY].MARK = CELL_FLAGGED;
+                    break;
+                case QUESTIONED: board[pkRectX][pkRectY].MARK = CELL_QUESTIONED;
+                    break;
+            }
+
+        }
 
 
         BeginDrawing();
@@ -312,7 +400,7 @@ int main( int argc, char *argv[] )
             for (int y = 0; y < status.H_TILES; y++) {
                 // SET RECT FOR ALL TILES
                 Vector2 rect = {x * status.TILE,
-                                 y * status.TILE};
+                                y * status.TILE};
 
                 if (board[x][y].VISIBLE || setVisibleTiles || status.STATE == LOSE || status.STATE == WIN) {
 
@@ -354,17 +442,25 @@ int main( int argc, char *argv[] )
         }
 
         // RENDER CURSOR
-        DrawTextureV(cursor, cursorRect, WHITE);
-
-
+        for (int p = 0; p < num_packets_received; p++) {
+            DrawTextureV(cursor, allPackets[p].pos_cursor, WHITE);
+        }
 
         EndDrawing();
 
     }
 
+    for (int i = 0; i < 16; i++) {
+        UnloadTexture(sprites[i]);
+    }
+    UnloadTexture(cursor);
     CloseWindow();          // Close window and OpenGL context
 
     freeMem(status, board);
+
+    if (close(socket_fd) == -1)
+        handle_error("close");
+
 
 
     return 0;
