@@ -1,10 +1,11 @@
 #include <stdbool.h>
 #include "raylib.h"
 #include <stdlib.h>
-#include <time.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -169,18 +170,37 @@ int main( int argc, char *argv[] )
 {
     SetTraceLogLevel(LOG_WARNING);
 
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_fd == -1)
-        handle_error("socket");
+    int socket_fd;
+    struct addrinfo  *result, *rp;
 
-    struct sockaddr_in server_addr = {
-            .sin_family = AF_INET,
-            .sin_port = htons(12345),
-            .sin_addr.s_addr = inet_addr("127.0.0.1")
+    struct addrinfo hints = {
+            .ai_family = AF_INET,
+            .ai_socktype = SOCK_STREAM,
+            .ai_protocol = 0,
+            .ai_flags = 0,
     };
 
-    if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
-        handle_error("connect");
+    if (getaddrinfo("127.0.0.1", "12345", &hints, &result) < 0)
+        handle_error("getaddrinfo")
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        socket_fd = socket(rp->ai_family, rp->ai_socktype,
+                     rp->ai_protocol);
+        if (socket_fd == -1)
+            continue;
+
+        if (connect(socket_fd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break;                  /* Success */
+
+        close(socket_fd);
+    }
+
+    freeaddrinfo(result);           /* No longer needed */
+
+    if (rp == NULL) {               /* No address succeeded */
+        fprintf(stderr, "Could not connect\n");
+        exit(EXIT_FAILURE);
+    }
 
     unsigned int seed = 0;
     srand(seed);
