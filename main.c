@@ -4,10 +4,8 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 
 #define handle_error(msg) \
            do { perror(msg); } while (0);
@@ -512,9 +510,6 @@ int main( int argc, char *argv[] )
 
         EndDrawing();
 
-        if (status.STATE == LOSE) {
-            sleep(2);
-        }
 
     }
 
@@ -525,9 +520,6 @@ int main( int argc, char *argv[] )
     CloseWindow();          // Close window and OpenGL context
 
     freeMem(status, board);
-
-    if (close(socket_fd) == -1)
-        handle_error("close");
 
 
 
