@@ -65,6 +65,8 @@ typedef enum CellAction {
 typedef struct Packet {
     Vector2 pos_cursor;
     CellAction action_tile;
+    unsigned int seed;
+    State state;
 } Packet;
 
 void initializeBoard(TILE **board, int width, int height) {
@@ -180,8 +182,8 @@ int main( int argc, char *argv[] )
     if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         handle_error("connect");
 
-    time_t t;
-    srand(123);
+    unsigned int seed = 0;
+    srand(seed);
 
     Status status = {
             .TILE = 40,
@@ -354,11 +356,16 @@ int main( int argc, char *argv[] )
             }
         }
 
+        packet.state = status.STATE;
+
+
         if (send(socket_fd, &packet, sizeof(packet), 0) == -1)
             handle_error("send")
 
-//        printf("Sent Packet: Cursor(%f, %f),Action(%d)\n",
-//               packet.pos_cursor.x, packet.pos_cursor.y, packet.action_tile);
+        if (packet.action_tile >= 0 ) {
+            printf("Sent Packet: Cursor(%f, %f),Action(%d)\n",
+                   packet.pos_cursor.x, packet.pos_cursor.y, packet.action_tile);
+        }
 
         ssize_t nbytes_read = recv(socket_fd, allPackets, sizeof(allPackets), 0);
         if (nbytes_read == -1)
@@ -367,9 +374,24 @@ int main( int argc, char *argv[] )
         int num_packets_received = nbytes_read / sizeof(Packet);
 //        printf("Received %d Packets from server:\n", num_packets_received);
         for (int i = 0; i < num_packets_received; i++) {
-            if (packet.action_tile >= 0 ) {
+            if (allPackets[i].action_tile != -1 ) {
                 printf("Packet %d: Cursor(%f, %f),Action(%d)\n",
                        i, allPackets[i].pos_cursor.x, allPackets[i].pos_cursor.y, allPackets[i].action_tile);
+            }
+
+            if (allPackets[i].seed != seed) {
+                seed = allPackets[i].seed;
+                printf("seed %du\n", seed);
+                srand(seed);
+                if (status.STATE != defaultStatus.STATE) {
+                    status.STATE = defaultStatus.STATE;
+                    setVisibleTiles = false;
+                }
+                status.BOMBS = defaultStatus.BOMBS;
+                status.VISIBLE_TILES = defaultStatus.VISIBLE_TILES;
+                initializeBoard(board, status.W_TILES, status.H_TILES);
+                generateBombs(board, status.BOMBS, status);
+                generateNumbers(board, &status);
             }
 
             int pkRectX = allPackets[i].pos_cursor.x/status.TILE;
@@ -469,6 +491,10 @@ int main( int argc, char *argv[] )
         }
 
         EndDrawing();
+
+        if (status.STATE == LOSE) {
+            sleep(2);
+        }
 
     }
 
