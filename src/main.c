@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define handle_error(msg) \
            do { perror(msg); } while (0);
@@ -164,12 +165,28 @@ void revealEmptyCells(TILE **board, int x, int y, Status *status) {
     }
 }
 
+pid_t start_server() {
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("./server", "./server", NULL);
+        handle_error("Error starting server");
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        handle_error("Failed to create the fork");
+        exit(EXIT_FAILURE);
+    } else {
+        sleep(3); // wait for the server to start
+    }
+    return pid;
+}
+
 int main( int argc, char *argv[] )
 {
     SetTraceLogLevel(LOG_WARNING);
 
     int socket_fd;
     struct addrinfo  *result, *rp;
+    pid_t server_pid;
 
     struct addrinfo hints = {
             .ai_family = AF_INET,
@@ -196,8 +213,32 @@ int main( int argc, char *argv[] )
     freeaddrinfo(result);           /* No longer needed */
 
     if (rp == NULL) {               /* No address succeeded */
-        fprintf(stderr, "Could not connect\n");
-        exit(EXIT_FAILURE);
+        handle_error("Could not connect");
+        printf("Starting server...\n");
+
+        server_pid = start_server();
+
+        if (getaddrinfo("127.0.0.1", "12345", &hints, &result) < 0)
+            handle_error("getaddrinfo")
+
+        for (rp = result; rp != NULL; rp = rp->ai_next) {
+            socket_fd = socket(rp->ai_family, rp->ai_socktype,
+                               rp->ai_protocol);
+            if (socket_fd == -1)
+                continue;
+
+            if (connect(socket_fd, rp->ai_addr, rp->ai_addrlen) != -1)
+                break;                  /* Success */
+
+            close(socket_fd);
+        }
+
+        if (rp == NULL) {
+            handle_error("Could not connect");
+            freeaddrinfo(result);
+            exit(EXIT_FAILURE);
+        }
+        printf("Server started with pid: %d\n", server_pid);
     }
 
     unsigned int seed = 0;
@@ -521,7 +562,7 @@ int main( int argc, char *argv[] )
 
     freeMem(status, board);
 
-
+    kill(server_pid, SIGTERM);
 
     return 0;
 
