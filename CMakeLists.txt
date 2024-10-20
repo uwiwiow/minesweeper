@@ -7,7 +7,11 @@ find_package(raylib REQUIRED)
 
 add_executable(minesweeper src/main.c
         src/texture.c
-        src/texture.h)
+        src/texture.h
+        src/board.c
+        src/board.h
+        src/log.c
+        src/log.h)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 
 target_link_libraries(minesweeper raylib GL m pthread dl rt X11)
